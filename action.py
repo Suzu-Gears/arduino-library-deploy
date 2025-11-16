@@ -103,7 +103,7 @@ def create_pr(new_version, head_branch):
 def merge_pr(pr_number):
     """Merges the specified pull request."""
     url = f"{GITHUB_API_URL}/pulls/{pr_number}/merge"
-    data = {'merge_method': 'squash'}
+    data = {'merge_method': 'merge'}
     response = requests.put(url, headers=HEADERS, json=data)
     if response.status_code == 200:
         print(f"Successfully merged PR #{pr_number}.")
