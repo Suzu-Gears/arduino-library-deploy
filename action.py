@@ -10,6 +10,7 @@ import subprocess
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 pr_version = os.getenv('pr_version')
 main_version = os.getenv('main_version')
+lint_mode = os.getenv('INPUT_LINT-MODE')
 
 GITHUB_API_URL = f'https://api.github.com/repos/{os.getenv("GITHUB_REPOSITORY")}/pulls/{os.getenv("PR_NUMBER")}/merge'
 
@@ -56,7 +57,7 @@ def validate_dependencies():
 def validate_code_style():
     try:
         result = subprocess.run(
-            ["arduino-lint", "--library-manager", "update"],
+            ["arduino-lint", "--library-manager", lint_mode],
             capture_output=True,
             text=True,
             check=True

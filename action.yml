@@ -8,6 +8,10 @@ inputs:
   GITHUB_TOKEN:
     description: "GitHub token for API requests."
     required: true
+  lint-mode:
+    description: "The library manager mode for arduino-lint. Can be {submit|update|false}."
+    required: false
+    default: "update"
 
 runs:
   using: "docker"
