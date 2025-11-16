@@ -1,129 +1,120 @@
-# GitHub Action: Library Version Validation, Pull Request Automation, and Release Creation  
+# GitHub Action: Arduino Library Deploy
 
-## Overview  
+## Overview
 
-This GitHub Action streamlines version management, pull request validation, and release creation for Arduino library repositories. It ensures that library versions adhere to semantic versioning, automates pull request merges, and creates GitHub releases for validated versions.  
+This GitHub Action provides a comprehensive and automated solution for managing Arduino library releases. It supports two primary workflows:
 
-The action validates version progression, checks dependencies, enforces code style rules, and automates the merging and release process.
+1.  **Pull Request Workflow**: Validates `library.properties` on pull requests to ensure versioning and metadata are correct before merging.
+2.  **Tag Push Workflow**: Automates the entire release process when a new version tag is pushed. It creates a pull request from a development branch, merges it, and drafts a new GitHub release.
 
----
-
-## Features  
-
-- **Semantic Version Validation**: Ensures pull request versions follow semantic versioning conventions, ensuring logical progression (e.g., `v1.0.1` → `v1.1.0`).
-- **Automated Merging**: Automatically merges pull requests with valid versions, reducing manual intervention.
-- **Release Automation**: Creates GitHub releases with validated versions, including changelog entries.
-- **Library Metadata Validation**: Ensures that the `library.properties` file contains all required fields such as `name`, `version`, `author`, `maintainer`, etc.
-- **Dependency Validation**: Checks that any dependencies in `library.properties` are in a valid format.
-- **Code Style Enforcement**: Uses the Arduino CLI (`arduino-lint`) to validate code style, ensuring consistency with the Arduino standards.
-- **Pre-release Version Support**: Allows the use of pre-release versions (e.g., `v1.0.0-alpha`), with a warning if included.
+This dual-workflow approach streamlines development, enforces standards, and eliminates manual release steps.
 
 ---
 
-## Inputs  
+## Features
 
-| Input              | Description                                                             | Required | Default                  |  
-|--------------------|-------------------------------------------------------------------------|----------|--------------------------|  
-| `GITHUB_TOKEN`     | GitHub token for API access to merge pull requests and create releases. | Yes      | `${{ secrets.GITHUB_TOKEN }}` |  
-
----
-
-## Outputs  
-
-This action does not return direct outputs but performs the following actions:  
-
-- Validates the pull request version against semantic versioning rules.
-- Validates library metadata, dependencies, and code style.
-- Rejects invalid or duplicate versions.
-- Merges valid pull requests.
-- Generates a new GitHub release.
+- **Dual Workflow Triggers**: Operates on both `pull_request` events for validation and `push` events (for tags) for full release automation.
+- **Automatic PR Creation**: On a tag push, automatically creates a pull request from your development branch (e.g., `develop`) to your main branch.
+- **Semantic Version Validation**: Ensures new tags or PR versions follow semantic versioning conventions against the latest release.
+- **Automated Merging & Releasing**: Automatically merges the created pull request and drafts a new GitHub release corresponding to the pushed tag.
+- **Library Metadata Validation**: Ensures `library.properties` exists.
+- **Code Style Enforcement**: Uses `arduino-lint` to validate code style, ensuring consistency with Arduino standards.
 
 ---
 
-## Usage  
+## Inputs
 
-This action is triggered by the `pull_request` event whenever a pull request is opened, updated, or reopened.  
-
-### Example Workflow  
-
-Below is an example of a workflow using this GitHub Action:  
-
-```yaml  
-name: Validate Library Version and Create Release  
-
-on:  
-  pull_request:  
-    types: [opened, synchronize, reopened]  
-
-jobs:  
-  validate-and-release:  
-    runs-on: ubuntu-latest  
-    permissions:  
-      contents: write  
-      pull-requests: write  
-    steps:  
-      - name: Checkout Code  
-        uses: actions/checkout@v3  
-
-      - name: Arduino Library Deploy  
-        uses: ktauchathuranga/arduino-library-deploy@v2.2.9  
-        env:  
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-```  
+| Input | Description | Required | Default |
+|---|---|---|---|
+| `lint-mode` | The library manager mode for `arduino-lint`. Can be `{submit|update|false}`. `submit` runs stricter checks for new libraries. | No | `update` |
+| `source-branch` | The source branch for auto-creating PRs on a tag push. | No | `develop` |
+| `target-branch` | The target branch for auto-creating PRs on a tag push. | No | `main` |
 
 ---
 
-## Workflow Steps  
+## Environment Variables
 
-1. **Checkout Code**: The workflow uses `actions/checkout@v3` to clone the pull request branch for inspection.  
-2. **Version Extraction**: The action extracts the `version` field from the `library.properties` file in the pull request.  
-3. **Compare Versions**: The action compares the pull request version with the current main branch version, validating the version progression:  
-   - Ensures the new version is greater than the current one.  
-   - Validates compliance with semantic versioning.  
-4. **Library Metadata Validation**: Checks the `library.properties` file for required fields like `name`, `author`, `maintainer`, etc.  
-5. **Dependency Validation**: Checks the dependencies in `library.properties` to ensure they are valid and well-formed.  
-6. **Code Style Validation**: Uses the `arduino-lint` tool to ensure code follows the correct Arduino style guide.
-7. **Merge and Release**:  
-   - Merges the pull request if the version, metadata, dependencies, and code style are valid.  
-   - Creates a GitHub release with the validated version and a changelog entry.
+| Variable | Description | Required | Default |
+|---|---|---|---|
+| `GITHUB_TOKEN` | A GitHub token with permissions to create/merge pull requests and create releases. | Yes | `${{ secrets.GITHUB_TOKEN }}` |
 
 ---
 
-## Semantic Versioning Rules  
+## Usage
 
-This action enforces strict adherence to [Semantic Versioning (SemVer)](https://semver.org) rules:  
+This action can be triggered by a `pull_request` event or a `push` event for tags.
 
-1. **Version Format**: Versions must follow the format `v<MAJOR>.<MINOR>.<PATCH>` (e.g., `v1.0.0`).  
-2. **Version Progression**:  
-   - **MAJOR**: Incremented for breaking changes, resetting `MINOR` and `PATCH` to `0`.  
-   - **MINOR**: Incremented for new features, resetting `PATCH` to `0`.  
-   - **PATCH**: Incremented for bug fixes.  
-3. **Valid Changes Only**:  
-   - A new version must be greater than the current one.  
-   - Skipping intermediate versions without justification is disallowed (e.g., `v1.0.0` → `v1.0.2` without `v1.0.1` is invalid).  
-4. **Pre-release Versions**: Supports pre-release identifiers (e.g., `v1.0.0-alpha`) for testing purposes, with a warning for inclusion.
+### Example Workflow
 
-### Invalid Examples  
+Below is an example of a workflow that uses both triggers.
 
-- **Backward progression**: `v1.0.0` → `v0.9.0`
-- **Skipping intermediate versions**: `v1.0.0` → `v1.0.2` without `v1.0.1`
-- **Invalid version format**: `v1.0.0-rc` (incorrect format without proper pre-release identifier)
+```yaml
+name: Validate Library Version and Create Release
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    tags:
+      - 'v*.*.*' # Triggers on tags like v1.2.3
+
+jobs:
+  validate-and-release:
+    name: Validate Library Version and Create Release
+    runs-on: ubuntu-latest
+    # These permissions are required for creating PRs and releases
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required to fetch all tags for version comparison
+
+      - name: Arduino Library Deploy
+        uses: Suzu-Gears/arduino-library-deploy@main
+        with:
+          # 'submit' runs stricter checks for new libraries
+          lint-mode: 'submit'
+          # The branch to create a PR from
+          source-branch: 'develop'
+          # The branch to merge the PR into
+          target-branch: 'main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Repository Settings
+
+For the action to have permission to create pull requests, you must configure your repository settings:
+1.  Go to **Settings** > **Actions** > **General**.
+2.  In the **Workflow permissions** section, select **"Read and write permissions"** and check the box for **"Allow GitHub Actions to create and approve pull requests"**.
 
 ---
 
-## Error Handling  
+## Workflow Steps
 
-This GitHub Action will reject pull requests that fail the following conditions:  
+The action's behavior depends on the event that triggered it.
 
-- Invalid or improperly incremented versions (e.g., backward progression, invalid format).
-- Missing or invalid fields in the `library.properties` file.
-- Invalid or incorrectly formatted dependencies.
-- Code style issues detected by `arduino-lint`.
+### On a `push` event with a new tag:
 
-The action will print the corresponding error message and exit with a non-zero status, which will cause the workflow to fail.
+1.  **Detect Tag**: The action confirms the push event is for a new tag.
+2.  **Fetch Latest Release**: It retrieves the version number of the latest release on the `target-branch`.
+3.  **Validate Version**: The new tag is validated against the latest release version to ensure it's a valid semantic version increment.
+4.  **Run Linting**: `library.properties` is checked and `arduino-lint` is run against the codebase.
+5.  **Create Pull Request**: A new pull request is automatically created from the `source-branch` to the `target-branch`.
+6.  **Merge Pull Request**: The newly created pull request is immediately merged.
+7.  **Create Release**: A new GitHub release is drafted with the pushed tag.
+
+### On a `pull_request` event:
+
+1.  **Validate Version**: The action validates the version in `library.properties` against the version in the base branch.
+2.  **Run Linting**: `library.properties` is checked and `arduino-lint` is run.
+3.  **Merge and Release**: If all checks pass, the pull request is merged and a new release is created.
 
 ---
 
-## License  
+## License
 
 This GitHub Action is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
