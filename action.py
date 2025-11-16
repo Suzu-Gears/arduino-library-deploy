@@ -77,12 +77,12 @@ def get_latest_release_version():
     response.raise_for_status()
     return response.json()['tag_name']
 
-def create_pr(new_version):
+def create_pr(new_version, head_branch):
     """Creates a pull request from the source branch to the target branch."""
     url = f"{GITHUB_API_URL}/pulls"
     data = {
         'title': f'Release: {new_version}',
-        'head': SOURCE_BRANCH,
+        'head': head_branch,
         'base': TARGET_BRANCH,
         'body': f'Automated release for version {new_version}.',
     }
@@ -129,6 +129,16 @@ def create_release(version):
         print(f"Error creating release: {response.status_code} {response.text}")
         sys.exit(1)
 
+def delete_branch(branch_name):
+    """Deletes a branch on the remote."""
+    print(f"Deleting remote branch '{branch_name}'...")
+    url = f"{GITHUB_API_URL}/git/refs/heads/{branch_name.replace('refs/heads/', '')}"
+    response = requests.delete(url, headers=HEADERS)
+    if response.status_code == 204:
+        print(f"Successfully deleted remote branch '{branch_name}'.")
+    else:
+        print(f"Warning: Could not delete remote branch '{branch_name}': {response.status_code} {response.text}")
+
 # --- Workflow Handlers ---
 
 def handle_pull_request():
@@ -160,6 +170,30 @@ def handle_tag_push():
     new_tag = GITHUB_REF.replace('refs/tags/', '')
     print(f"Detected new tag: {new_tag}")
 
+    head_branch = f"release/{new_tag}"
+    try:
+        tag_commit_sha = subprocess.run(
+            ["git", "rev-parse", new_tag],
+            capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+        subprocess.run(
+            ["git", "checkout", "-b", head_branch, tag_commit_sha],
+            capture_output=True, text=True, check=True
+        )
+        subprocess.run(
+            ["git", "push", "origin", head_branch],
+            capture_output=True, text=True, check=True
+        )
+        print(f"Created and pushed temporary branch '{head_branch}' from tag '{new_tag}'.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error creating temporary branch: {e}")
+        if e.stdout:
+            print(f"stdout:\n{e.stdout}")
+        if e.stderr:
+            print(f"stderr:\n{e.stderr}")
+        sys.exit(1)
+
     latest_version = get_latest_release_version()
     print(f"Latest release version on '{TARGET_BRANCH}' is '{latest_version}'.")
 
@@ -167,11 +201,14 @@ def handle_tag_push():
     validate_library_metadata()
     validate_code_style()
 
-    print(f"Creating PR from '{SOURCE_BRANCH}' to '{TARGET_BRANCH}'...")
-    pr_number = create_pr(new_tag)
+    print(f"Creating PR from '{head_branch}' to '{TARGET_BRANCH}'...")
+    pr_number = create_pr(new_tag, head_branch)
     
     merge_pr(pr_number)
     create_release(new_tag)
+    
+    delete_branch(head_branch)
+    
     print("-- Tag Push Handled Successfully --")
 
 # --- Main Function ---
