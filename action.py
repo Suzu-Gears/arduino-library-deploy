@@ -66,7 +66,10 @@ def validate_code_style():
         print(result.stdout)
     except subprocess.CalledProcessError as e:
         print("Error: Code style validation failed.")
-        print(e.stderr)
+        if e.stdout:
+            print(e.stdout)
+        if e.stderr:
+            print(e.stderr)
         sys.exit(1)
 
 # Semantic version validation (unchanged from original)
