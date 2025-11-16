@@ -12,6 +12,14 @@ inputs:
     description: "The library manager mode for arduino-lint. Can be {submit|update|false}."
     required: false
     default: "update"
+  source-branch:
+    description: "The source branch for auto-creating PRs on tag push."
+    required: false
+    default: "develop"
+  target-branch:
+    description: "The target branch for auto-creating PRs on tag push."
+    required: false
+    default: "main"
 
 runs:
   using: "docker"
